@@ -27,11 +27,11 @@ def entropy_production_rate(KQ_f, KQ_r, E_Regulation):
     kq_le1_idx = np.where(KQ_f < 1)
     kq_inv_ge1_idx = np.where(KQ_r > 1)
     kq_inv_le1_idx = np.where(KQ_r <= 1)
-    
-    epr = +np.sum(KQ_f_reg[kq_ge1_idx] * np.log(x)(KQ_f[kq_ge1_idx]))/sumOdds \
-          -np.sum(KQ_f_reg[kq_le1_idx] * np.log(x)(KQ_f[kq_le1_idx]))/sumOdds \
-          -np.sum(KQ_r_reg[kq_inv_le1_idx] * np.log(x)(KQ_r[kq_inv_le1_idx]))/sumOdds \
-          +np.sum(KQ_r_reg[kq_inv_ge1_idx] * np.log(x)(KQ_r[kq_inv_ge1_idx]))/sumOdds
+	
+    epr = +np.sum(KQ_f_reg[kq_ge1_idx] * np.log((KQ_f[kq_ge1_idx])))/sumOdds \
+          -np.sum(KQ_f_reg[kq_le1_idx] * np.log((KQ_f[kq_le1_idx])))/sumOdds \
+          -np.sum(KQ_r_reg[kq_inv_le1_idx] * np.log((KQ_r[kq_inv_le1_idx])))/sumOdds \
+          +np.sum(KQ_r_reg[kq_inv_ge1_idx] * np.log((KQ_r[kq_inv_ge1_idx])))/sumOdds
     return epr
 
 
@@ -40,17 +40,15 @@ def derivatives(log_vcounts,log_fcounts,mu0,S_mat, R_back_mat, P_mat, delta_incr
 
     nvar = log_vcounts.size
     log_metabolites = np.append(log_vcounts,log_fcounts) #log_counts
-    #KQ_f = odds(log_metabolites,mu0,S_mat, R_back_mat, P_mat, delta_increment_for_small_concs, Keq, 1); #internal conversion to counts
     EKQ_f = odds_alternate(E_Regulation,log_metabolites,mu0,S_mat, R_back_mat, P_mat, delta_increment_for_small_concs, Keq, 1); #internal conversion to counts
+    
     Keq_inverse = np.power(Keq,-1);
-    #KQ_r = odds(log_metabolites,mu0,-S_mat, P_mat, R_back_mat, delta_increment_for_small_concs, Keq_inverse, -1);#internal conversion to counts
     EKQ_r = odds_alternate(E_Regulation,log_metabolites,mu0,-S_mat, P_mat, R_back_mat, delta_increment_for_small_concs, Keq_inverse, -1);#internal conversion to counts
     
     s_mat = S_mat[:,0:nvar]
-    #deriv_alternate = S_mat.T.dot((EKQ_f - EKQ_r).T)
+    
     deriv = s_mat.T.dot((EKQ_f - EKQ_r).T)
 
- 
     return(deriv.reshape(deriv.size,))
 
 
@@ -64,12 +62,6 @@ def odds(log_counts,mu0,S_mat, R_back_mat, P_mat, delta_increment_for_small_conc
     return(KQ)
     
 def odds_alternate(E_Regulation,log_counts,mu0,S_mat, R_back_mat, P_mat, delta_increment_for_small_concs, Keq_constant, direction = 1):
-    
-    scale_min = np.min(-direction*(R_back_mat.dot(log_counts) + P_mat.dot(log_counts)))
-    scale_max = np.max(-direction*(R_back_mat.dot(log_counts) + P_mat.dot(log_counts)))
-    scale = (scale_max + scale_min)/2.0
-    
-    scaled_val = -direction*(R_back_mat.dot(log_counts) + P_mat.dot(log_counts)) - scale
     
     log_Q_inv = (-direction*(R_back_mat.dot(log_counts) + P_mat.dot(log_counts)))
     log_EKQ = np.log(np.multiply(E_Regulation,Keq_constant)) + log_Q_inv
@@ -201,10 +193,6 @@ def get_enzyme2regulate(ipolicy, delta_S_metab,delta_S, ccc, KQ, E_regulation, v
         S_index = [i for i,val in enumerate(delta_S)]
     
     if (len(S_index)>0 ):
-        
-        row_index = sm_idx#sm_idx.tolist()
-        col_index = S_index
-               
         if (ipolicy == 'local') or (ipolicy == 1):
         
             temp = ccc[np.ix_(sm_idx,S_index)]#np.ix_ does outer product
