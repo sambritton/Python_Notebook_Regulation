@@ -282,7 +282,7 @@ def get_enzyme2regulate(ipolicy, delta_S_metab,delta_S, ccc, KQ, E_regulation, v
         
         sm_idx = [i for i,val in enumerate(delta_S_metab) if val > 0]
         S_index = [i for i,val in enumerate(delta_S) if val > 0]
-        print(S_index)
+        #print(S_index)
     else:
         sm_idx = [i for i,val in enumerate(delta_S_metab) if val > 0]
         S_index = [i for i,val in enumerate(delta_S)]
@@ -292,7 +292,7 @@ def get_enzyme2regulate(ipolicy, delta_S_metab,delta_S, ccc, KQ, E_regulation, v
         row_index = sm_idx#sm_idx.tolist()
         col_index = S_index
                
-        if (ipolicy == 4):
+        if (ipolicy == 'local') or (ipolicy == 1):
         
             temp = ccc[np.ix_(sm_idx,S_index)]#np.ix_ does outer product
                 
@@ -312,7 +312,7 @@ def get_enzyme2regulate(ipolicy, delta_S_metab,delta_S, ccc, KQ, E_regulation, v
 
             
             return reaction_choice
-        if (ipolicy == 7):
+        if (ipolicy == 'unrestricted') or (ipolicy == 2):
             temp = ccc[np.ix_(sm_idx,S_index)]#np.ix_ does outer product
                 
             temp2 = (temp > 0) #ccc>0 means derivative is positive (dlog(conc)/dlog(activity)>0) 
