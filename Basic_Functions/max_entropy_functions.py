@@ -11,7 +11,6 @@ import random
 
 from scipy.optimize import least_squares
 
-
 def exp_normalize(x):
     b = x.max()
     y = np.exp(x - b)
@@ -27,49 +26,43 @@ def entropy_production_rate(KQ_f, KQ_r, E_Regulation):
     kq_le1_idx = np.where(KQ_f < 1)
     kq_inv_ge1_idx = np.where(KQ_r > 1)
     kq_inv_le1_idx = np.where(KQ_r <= 1)
-	
-    epr = +np.sum(KQ_f_reg[kq_ge1_idx] * np.log((KQ_f[kq_ge1_idx])))/sumOdds \
-          -np.sum(KQ_f_reg[kq_le1_idx] * np.log((KQ_f[kq_le1_idx])))/sumOdds \
-          -np.sum(KQ_r_reg[kq_inv_le1_idx] * np.log((KQ_r[kq_inv_le1_idx])))/sumOdds \
-          +np.sum(KQ_r_reg[kq_inv_ge1_idx] * np.log((KQ_r[kq_inv_ge1_idx])))/sumOdds
+    
+    epr = +np.sum(KQ_f_reg[kq_ge1_idx] * np.log(KQ_f[kq_ge1_idx]))/sumOdds \
+          -np.sum(KQ_f_reg[kq_le1_idx] * np.log(KQ_f[kq_le1_idx]))/sumOdds \
+          -np.sum(KQ_r_reg[kq_inv_le1_idx] * np.log(KQ_f[kq_inv_le1_idx]))/sumOdds \
+          +np.sum(KQ_r_reg[kq_inv_ge1_idx] * np.log(KQ_f[kq_inv_ge1_idx]))/sumOdds
     return epr
 
-
-# try using np.longdouble
 def derivatives(log_vcounts,log_fcounts,mu0,S_mat, R_back_mat, P_mat, delta_increment_for_small_concs, Keq, E_Regulation):
 
     nvar = log_vcounts.size
     log_metabolites = np.append(log_vcounts,log_fcounts) #log_counts
     EKQ_f = odds_alternate(E_Regulation,log_metabolites,mu0,S_mat, R_back_mat, P_mat, delta_increment_for_small_concs, Keq, 1); #internal conversion to counts
-    
     Keq_inverse = np.power(Keq,-1);
     EKQ_r = odds_alternate(E_Regulation,log_metabolites,mu0,-S_mat, P_mat, R_back_mat, delta_increment_for_small_concs, Keq_inverse, -1);#internal conversion to counts
     
     s_mat = S_mat[:,0:nvar]
-    
     deriv = s_mat.T.dot((EKQ_f - EKQ_r).T)
-
     return(deriv.reshape(deriv.size,))
-
-
-# In[ ]:
 
 def odds(log_counts,mu0,S_mat, R_back_mat, P_mat, delta_increment_for_small_concs, Keq_constant, direction = 1):
 
     Q_inv = np.exp(-direction*(R_back_mat.dot(log_counts) + P_mat.dot(log_counts)))    
     KQ = np.multiply(Keq_constant,Q_inv)
-    
     return(KQ)
     
 def odds_alternate(E_Regulation,log_counts,mu0,S_mat, R_back_mat, P_mat, delta_increment_for_small_concs, Keq_constant, direction = 1):
+
+    scale_min = np.min(-direction*(R_back_mat.dot(log_counts) + P_mat.dot(log_counts)))
+    scale_max = np.max(-direction*(R_back_mat.dot(log_counts) + P_mat.dot(log_counts)))
+    scale = (scale_max + scale_min)/2.0
     
+    scaled_val = -direction*(R_back_mat.dot(log_counts) + P_mat.dot(log_counts)) - scale
     log_Q_inv = (-direction*(R_back_mat.dot(log_counts) + P_mat.dot(log_counts)))
     log_EKQ = np.log(np.multiply(E_Regulation,Keq_constant)) + log_Q_inv
-
     q_max = np.max(abs(log_Q_inv))
-    
     ekq_max = np.max(abs(log_EKQ))
-
+    
     if (q_max < ekq_max):
         Q_inv = np.exp(log_Q_inv)    
         KQ = np.multiply(Keq_constant,Q_inv)
@@ -77,8 +70,6 @@ def odds_alternate(E_Regulation,log_counts,mu0,S_mat, R_back_mat, P_mat, delta_i
     else:
         log_EKQ = np.log(np.multiply(E_Regulation,Keq_constant)) + log_Q_inv
         EKQ = np.exp(log_EKQ)
-
-    
     return(EKQ)
 
 def oddsDiff(log_vcounts, log_fcounts, mu0, S_mat, R_back_mat, P_mat, delta_increment_for_small_concs, Keq, E_Regulation):
@@ -90,7 +81,6 @@ def oddsDiff(log_vcounts, log_fcounts, mu0, S_mat, R_back_mat, P_mat, delta_incr
   
     #WARNING: Multiply regulation here, not on individual Keq values.
     KQdiff =  E_Regulation * (KQ_f - KQ_r);
-  
     return(KQdiff)
 
 
@@ -110,8 +100,6 @@ def calc_Jac2(log_vcounts, log_fcounts, S_mat, delta_increment_for_small_concs, 
     y = ((x.T)*s_ij_x_recip_metabolites.T).T    
     RR = y * delta_metabolites.T
     Jac = np.matmul(S_mat.T,y)
-    
-    
     return (RR, Jac)
 
 
@@ -129,8 +117,13 @@ def calc_A(log_vcounts, log_fcounts, S_mat, Jac, E_Regulation):
     return(A)
 
 def conc_flux_control_coeff(nvar, A, S_mat, rxn_flux, RR):
-    B = np.linalg.pinv(A[0:nvar,0:nvar]);
+    #ccc = d log(concentration) / d log (rate)
+    #fcc = d log(flux) / d log(rate)
     
+    #ccc = -B*S_mat*flux
+    #fcc = delta_mn - 1/flux_m * (RBS)_mn * flux_n
+    
+    B = np.linalg.pinv(A[0:nvar,0:nvar]);
     ccc = np.matmul(-B, S_mat[:,0:nvar].T)*rxn_flux
     RB = np.matmul(RR[:,0:nvar], B)
     RBS = np.matmul(RB, S_mat[:, 0:nvar].T)
@@ -141,87 +134,86 @@ def conc_flux_control_coeff(nvar, A, S_mat, rxn_flux, RR):
     
     fcc_temp = (1.0/rxn_flux_temp) * (RBS * rxn_flux)    
     fcc = np.identity(len(fcc_temp)) - fcc_temp
-
     return [ccc,fcc]
-	
+
 def calc_deltaS(log_vcounts,target_log_vcounts, log_fcounts, S_mat, KQ):
+    
     pt_forward=np.zeros(len(KQ))
-
     pt_reverse=np.zeros(len(KQ))
-
+    
     log_target_metabolite = np.append(target_log_vcounts, log_fcounts)
     log_metabolite = np.append(log_vcounts, log_fcounts)
-
+    
+    delta_S = np.zeros(len(KQ))
     delta_S_new = np.zeros(len(KQ))
     row, = np.where(KQ >= 1)
-    P_Forward = (S_mat > 0)
-
-    #necessary to loop over the rows instead 
-    for rxn in row:
+    
+    P_Forward = (S_mat[row,:] > 0)
+    PdotMetab_Forward = np.matmul(P_Forward, log_metabolite) #takes rxn x metab mult metab x 1 = rxn x 1
+    PdotTargetMetab_Forward = np.matmul(P_Forward, log_target_metabolite)
+    delta_S[row] = PdotMetab_Forward - PdotTargetMetab_Forward
+    
+    for rxn in range(0,P_Forward.shape[0]):
         forward_val = (np.multiply(P_Forward[rxn,:], log_metabolite))
         forward_target = (np.multiply(P_Forward[rxn,:], log_target_metabolite))
         pt_forward[rxn] = np.max(forward_val - forward_target)
-        delta_S_new[rxn] = pt_forward[rxn]
 
-    row, = np.where(KQ < 1)
-    P_Reverse = (S_mat < 0)
+    delta_S_new[row] = pt_forward[row]
     
-    for rxn in row:
+    #Now reverse direction
+    row, = np.where(KQ < 1)
+
+    P_Reverse = (S_mat[row,:] < 0)
+    PdotMetab_Reverse = np.matmul(P_Reverse, log_metabolite)
+    PdotTargetMetab_Reverse = np.matmul(P_Reverse, log_target_metabolite)
+    delta_S[row] = PdotMetab_Reverse - PdotTargetMetab_Reverse
+    
+    for rxn in range(0,P_Reverse.shape[0]):
         reverse_val = (np.multiply(P_Reverse[rxn,:], log_metabolite))
         reverse_target = (np.multiply(P_Reverse[rxn,:], log_target_metabolite))
         pt_reverse[rxn] = np.max(reverse_val - reverse_target)
-        delta_S_new[rxn] = pt_reverse[rxn]
+    
+    delta_S_new[row] = pt_reverse[row]
+    
     return delta_S_new
 
 def calc_deltaS_metab(v_log_counts, target_v_log_counts ):
-
     delta_S_metab = v_log_counts - target_v_log_counts
     
     return delta_S_metab
 
 def get_enzyme2regulate(ipolicy, delta_S_metab,delta_S, ccc, KQ, E_regulation, v_counts):
-    
     reaction_choice=-1
     
-    if (ipolicy==4):
-        
-        sm_idx = [i for i,val in enumerate(delta_S_metab) if val > 0]
+    if (ipolicy == 'local') or (ipolicy == 1):
+        sm_idx = [i for i,val in enumerate(delta_S_metab) if val >= 0]
         S_index = [i for i,val in enumerate(delta_S) if val > 0]
-        #print(S_index)
     else:
         sm_idx = [i for i,val in enumerate(delta_S_metab) if val > 0]
         S_index = [i for i,val in enumerate(delta_S)]
-    
     if (len(S_index)>0 ):
+        row_index = sm_idx
+        col_index = S_index    
+
         if (ipolicy == 'local') or (ipolicy == 1):
-        
             temp = ccc[np.ix_(sm_idx,S_index)]#np.ix_ does outer product
-                
-            temp2 = (temp > 0) #ccc>0 means derivative is positive (dlog(conc)/dlog(activity)>0) 
-            
-            temp_x = (temp*temp2)#Do not use matmul, use element wise mult.
-
-            #TEMPORARY TEST
-            dx = np.multiply(v_counts[sm_idx].T,temp_x.T)
-            
-            #dx_neg = v_counts[sm_idx_neg].T*temp_x_neg
-            DeltaAlpha = 0.001  # must be small enough such that the arguement
-                                # of the log below is > 0
-            DeltaDeltaS = -np.log(1 - DeltaAlpha * np.divide(dx,v_counts[sm_idx]))
-            index3 = np.argmax(np.sum(DeltaDeltaS, axis=1)) #sum along rows (i.e. metabolites)
-            reaction_choice = S_index[index3]
-
-            
-            return reaction_choice
-        if (ipolicy == 'unrestricted') or (ipolicy == 2):
-            temp = ccc[np.ix_(sm_idx,S_index)]#np.ix_ does outer product
-                
             temp2 = (temp > 0) #ccc>0 means derivative is positive (dlog(conc)/dlog(activity)>0) 
             #this means regulation (decrease in activity) will result in decrease in conc
             
             temp_x = (temp*temp2)#Do not use matmul, use element wise mult.
+            #temp_x is just positive ccc where metabolites are over required amount.
+            #sum along rows (i.e. metabolites) to see which reaction is most sensitive
+            index3 = np.argmax(np.sum(temp_x, axis=0))
+            reaction_choice = S_index[index3]
+            #breakpoint()
             
-            #rxn by metabolite matrix
+            return reaction_choice
+        if (ipolicy == 'unrestricted') or (ipolicy == 2):
+            temp = ccc[np.ix_(sm_idx,S_index)]#np.ix_ does outer product 
+            temp2 = (temp > 0) #ccc>0 means derivative is positive (dlog(conc)/dlog(activity)>0) 
+            #this means regulation (decrease in activity) will result in decrease in conc
+            
+            temp_x = (temp*temp2)#Do not use matmul, use element wise mult.
             dx = np.multiply(v_counts[sm_idx].T,temp_x.T)
             
             DeltaAlpha = 0.001; # must be small enough such that the arguement
@@ -229,13 +221,20 @@ def get_enzyme2regulate(ipolicy, delta_S_metab,delta_S, ccc, KQ, E_regulation, v
             DeltaDeltaS = -np.log(1 - DeltaAlpha*np.divide(dx,v_counts[sm_idx]))
             index3 = np.argmax(np.sum(DeltaDeltaS, axis=1)) #sum along rows (i.e. metabolites)
             reaction_choice = S_index[index3]
-            
             return reaction_choice
     else:
         print("in function get_enzyme2regulate")
         print("all errors gone, fully uptimized")
         return -1
 
+#input: current enzyme activities np.array(float) and reaction choice (int)
+#output float
+def calc_new_enzyme_simple(E_vec,React_Choice):
+    current_E = E_vec[React_Choice]
+    new_E = current_E - current_E/5.0
+    return new_E
+
+#use delta_S as args input variable to use method1 (E=E/2) when delta_S_val is small
 def calc_reg_E_step(E_vec, React_Choice, nvar, log_vcounts, 
                     log_fcounts,complete_target_log_counts,S_mat, A, rxn_flux,KQ,
                     *args):
@@ -248,7 +247,8 @@ def calc_reg_E_step(E_vec, React_Choice, nvar, log_vcounts,
     vcounts = np.exp(log_vcounts)
     fcounts = np.exp(log_fcounts)
     E=E_vec[React_Choice]
-      
+    
+        
     metabolite_counts = np.append(vcounts, fcounts)
     S_T=S_mat.T
     B=np.linalg.pinv(A[0:nvar,0:nvar])
@@ -258,36 +258,31 @@ def calc_reg_E_step(E_vec, React_Choice, nvar, log_vcounts,
 
     if (arr_temp.shape[0] == 1):
       #then arr_temp was a 2D array and we need to extract the 1D array inside.
-      arr_temp = arr_temp[0] 
+      arr_temp = arr_temp[0]
+      
     if(KQ[React_Choice] < 1):
-        prod_indices = np.where( arr_temp < 0 )[0]   
+        prod_indices = np.where( arr_temp < 0 )[0]    
     else:
         prod_indices = np.where( arr_temp > 0 )[0]
-
-    E_choices=np.ones(len(prod_indices));
-
+    E_choices=np.ones(len(prod_indices))
     newE1=1.0
     if (np.size(E_choices) == 0 ):
         newE = E
     else:
         for i in range(0,len(prod_indices)):
             prod_index = prod_indices[i]
-            
             dx_j = metabolite_counts[prod_indices[i] ] - complete_target_log_counts[i]
             x_j_eq = metabolite_counts[ prod_indices[i] ];
-            
             if (dx_j > delta_S_val_method1):
                 delta_S_val_method1=dx_j
                 
             TEMP=(S_T[0:len(vcounts),React_Choice])*(rxn_flux[React_Choice]) 
             TEMP2=np.matmul(-B[prod_index,:],  TEMP )
-    
             deltaE = E * (dx_j/x_j_eq) * TEMP2
             E_choices[i] = deltaE;
             
         idx = np.argmax(E_choices)
         delta_E_Final = E_choices[idx]
-        
         newE = E - E/2#(delta_E_Final)
         
         tolerance = 1.0e-07
