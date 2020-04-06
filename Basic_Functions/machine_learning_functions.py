@@ -167,8 +167,8 @@ def sarsa_n(nn_model, loss_fn, optimizer, scheduler, state_sample, n_back_step, 
                 print("**************************************Path Length ds<0******************************************")
                 print(end_of_path)
                 print("Final State")
-                print(states_matrix[:,t+1])
-				print("Final Flux"
+                print(states_matrix[:,t+1])				
+                print("Final Flux")
                 print(rxn_flux_path)
                 print("final epr")
                 print(epr_path)
