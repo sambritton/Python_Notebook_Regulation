@@ -9,6 +9,11 @@ Steady state optimization is performed using the Levenberg-Marquadt algorithm. R
 - Glycolysis-TCA
 - Glycolysis-TCA & Pentose Phosphate
 
+
+# Plots
+
+Pathway regulation prediction data is provided as well as pathway visualization notebooks. 
+
 # Requirements
 
 - python3
