@@ -11,6 +11,21 @@ import random
 
 from scipy.optimize import least_squares
 
+def calculate_rate_constants(log_counts, rxn_flux,KQ_inverse, R, E_Regulation):
+    KQ = np.power(KQ_inverse,-1)
+    #Infer rate constants from reaction flux
+    denominator = E_Regulation* np.exp(-R.dot(log_counts))*(1-KQ_inverse)
+    # A reaction near equilibrium is problematic because (1-KQ_inverse)->0
+    # By setting these reactions to be 
+    # rate constant = 1/product_concs we are setting the rate to 1, which
+    # is the same as the thermodynammic rate = KQ.
+    one_idx, = np.where(KQ_inverse > 0.9)
+    denominator[one_idx] = E_Regulation[one_idx]* np.exp(-R[one_idx,:].dot(log_counts));
+    rxn_flux[one_idx] = 1;
+    fwd_rate_constants = rxn_flux/denominator;
+    
+    return(fwd_rate_constants)
+
 def exp_normalize(x):
     b = x.max()
     y = np.exp(x - b)
